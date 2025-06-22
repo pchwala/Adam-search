@@ -7,6 +7,7 @@ from google.auth.transport.requests import Request
 import gspread
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 class Adam:
     def __init__(self):
@@ -172,6 +173,14 @@ class Adam:
 
 app = FastAPI()
 
+# Allow frontend to talk to backend (CORS)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "https://szukajka-ids.web.app"],  # React dev server
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/search_orders")
 def search_orders_route():
     adam_instance = Adam()
@@ -183,11 +192,11 @@ def search_orders_route():
         output_nie_dodane = f"{new_orders_count}"
         total_combined = stats['wszystko']['non_iphone_count'] + new_orders_count
         output_combined = f"{total_combined}"
-        return JSONResponse(content={
+        return {
             "output_realizowane": output_realizowane,
             "output_oczekuje": output_oczekuje,
             "output_combined": output_combined,
             "output_nie_dodane": output_nie_dodane
-        })
+        }
     except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        return {"error": str(e)}
