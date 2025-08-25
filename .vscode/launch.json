@@ -16,6 +16,18 @@
                 "path": "${workspaceFolder}/frontend/src"
             }
         ]
+    },
+    {
+      "name": "FastAPI",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "console": "integratedTerminal"
     }
 ]
 }

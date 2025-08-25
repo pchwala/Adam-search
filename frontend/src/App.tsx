@@ -7,6 +7,7 @@ type ApiResponse = {
   output_oczekuje: string;
   output_combined: string;
   output_nie_dodane: string;
+  output_wykonane: string;
 };
 
 function App() {
@@ -24,7 +25,6 @@ function App() {
       if (!response.ok) {
         let error = "Network response was not ok";
         throw new Error(error);
-        setError(error);
       }
       const jsonData: ApiResponse = await response.json();
       setData(jsonData);
@@ -66,6 +66,9 @@ function App() {
             </h5>
             <h5 style={{ paddingTop: "20px" }}>
               Wszystkie: <strong>{String(data.output_combined)}</strong>
+            </h5>
+            <h5>
+              Wykonane: <strong>{String(data.output_wykonane)}</strong>
             </h5>
           </div>
         ) : (

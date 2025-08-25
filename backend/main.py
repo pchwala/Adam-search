@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+from datetime import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
@@ -50,11 +51,24 @@ class Adam:
         
         self.client = gspread.authorize(self.creds)
 
-        self.sheet_id = "15e6oc33_A21dNNv03wqdixYc9_mM2GTQzum9z2HylEg"
-        
+
+        self.orders_sheet_id = os.environ.get("REFURBED_PLIK")
+        if not self.orders_sheet_id:
+            self.orders_sheet_id = "15e6oc33_A21dNNv03wqdixYc9_mM2GTQzum9z2HylEg"
+            
+        self.plikM2 = os.environ.get("M2_M47_PLIK")
+        if not self.plikM2:
+            raise ValueError("M2_M47_PLIK must be provided as environment variable")
+
         # Open Orders Google Sheet
-        self.orders_sheet = self.client.open_by_key(self.sheet_id).worksheet("Orders")
+        self.orders_sheet = self.client.open_by_key(self.orders_sheet_id).worksheet("Orders")
+
+        self.config_sheet = self.client.open_by_key(self.orders_sheet_id).worksheet("Config")
         
+        self.output_sheet = self.client.open_by_key(self.orders_sheet_id).worksheet("Szukajka")
+
+        self.m2_sheet = self.client.open_by_key(self.plikM2).worksheet("Dane")
+
         # Base URL for API requests
         self.base_url = os.environ.get("IDOSELL_API_BASE_URL", "https://vedion.pl/api/admin/v5")
         
@@ -92,6 +106,133 @@ class Adam:
         except Exception as e:
             print(f"Error counting new non-iPhone orders: {str(e)}")
             return 0
+
+    def read_data_from_M2(self):
+        """
+        Read data from column C of the M2 sheet.
+        
+        Returns:
+            list: List of values from column C (excluding empty values)
+        """
+        try:
+            # Get all values from column C
+            column_c_values = self.m2_sheet.col_values(3)  # Column C is index 3
+            
+            # Filter out empty values (handle different data types)
+            filtered_values = []
+            for value in column_c_values:
+                if value is not None and str(value).strip():
+                    filtered_values.append(value)
+            
+            # Return only the last 500 non-empty values
+            return filtered_values[-500:]
+            
+        except Exception as e:
+            print(f"Error reading column C from M2 sheet: {str(e)}")
+            return []
+        
+    def save_last(self):
+        data = self.read_data_from_M2()
+        last_value = data[-1] if data else None
+
+        if last_value:
+            # Save the last value to cell A7 in config sheet
+            self.config_sheet.update(range_name='A7', values=[[last_value]])
+            print(f"Last value from M2 saved to Config: {last_value}")
+        else:
+            raise ValueError("No valid data found in M2.")
+
+    def show_count(self):
+        """
+        Count how many new values were added to M2 data since the last saved serial number.
+        
+        Returns:
+            int: Number of new values added since last_sn
+        """
+        try:
+            # Get column A from config sheet
+            column_a_values = self.config_sheet.col_values(1)  # Column A is index 1
+            
+            # Get value at row 7 (index 6 since list is 0-indexed)
+            last_sn = column_a_values[6] if len(column_a_values) > 6 else None
+            
+            if not last_sn:
+                print("No last_sn found in A7")
+                raise ValueError("No last_sn found in A7")
+            
+            # Get M2 data
+            m2_data = self.read_data_from_M2()
+            
+            if not m2_data:
+                print("No M2 data found")
+                raise ValueError("No M2 data found")
+            
+            # Count from the end until we find last_sn
+            count = 0
+            for i in range(len(m2_data) - 1, -1, -1):  # Start from end, go backwards
+                if str(m2_data[i]) == str(last_sn):
+                    break
+                count += 1
+            
+            return count
+            
+        except Exception as e:
+            print(f"Error counting daily values: {str(e)}")
+            return 0
+
+    def daily_count(self):
+        """
+        Get daily count, save it to output sheet based on current date, and update last saved value.
+        """
+        try:
+            # Get current date in CEST timezone (UTC+2)
+            current_date = datetime.now()
+            
+            # Get day and month
+            day = current_date.day
+            month = current_date.month
+            
+            # Map month number to column letter (B=Jan, C=Feb, ..., M=Dec)
+            month_columns = {
+                1: 'B',   # January
+                2: 'C',   # February
+                3: 'D',   # March
+                4: 'E',   # April
+                5: 'F',   # May
+                6: 'G',   # June
+                7: 'H',   # July
+                8: 'I',   # August
+                9: 'J',   # September
+                10: 'K',  # October
+                11: 'L',  # November
+                12: 'M'   # December
+            }
+            
+            # Get the column for current month
+            column = month_columns.get(month)
+            if not column:
+                raise ValueError(f"Invalid month: {month}")
+            
+            # Calculate row (day + 1 because row 1 is header, so day 1 = row 2, day 25 = row 26)
+            row = day + 1
+            
+            # Get count from show_count method
+            count = self.show_count()
+            
+            # Save to output sheet at calculated cell
+            cell_address = f"{column}{row}"
+            self.output_sheet.update(range_name=cell_address, values=[[count]])
+            
+            print(f"Daily count {count} saved to {cell_address} for date {current_date.strftime('%d.%m.%Y')}")
+            
+            # Save last value
+            self.save_last()
+            
+            return count
+            
+        except Exception as e:
+            print(f"Error in daily_count: {str(e)}")
+            raise e
 
     def search_orders(self):
         endpoint = f"{self.base_url}/orders/orders/search"
@@ -173,6 +314,7 @@ class Adam:
 
 app = FastAPI()
 
+
 # Allow frontend to talk to backend (CORS)
 app.add_middleware(
     CORSMiddleware,
@@ -187,16 +329,32 @@ def search_orders_route():
     try:
         stats = adam_instance.search_orders()
         new_orders_count = adam_instance.count_new()
+        wykonane_count = adam_instance.show_count()
         output_realizowane = f"{stats['realizowane']['non_iphone_count']}"
         output_oczekuje = f"{stats['oczekuje']['non_iphone_count']}"
         output_nie_dodane = f"{new_orders_count}"
+        output_wykonane = f"{wykonane_count}"
         total_combined = stats['wszystko']['non_iphone_count'] + new_orders_count
         output_combined = f"{total_combined}"
         return {
             "output_realizowane": output_realizowane,
             "output_oczekuje": output_oczekuje,
             "output_combined": output_combined,
-            "output_nie_dodane": output_nie_dodane
+            "output_nie_dodane": output_nie_dodane,
+            "output_wykonane": output_wykonane
         }
     except Exception as e:
         return {"error": str(e)}
+    
+    
+@app.get("/save_daily")
+def save_daily():
+    adam_instance = Adam()
+    try:
+        adam_instance.daily_count()
+        return {"status": "success"}
+    except Exception as e:
+        return {"error": str(e)}
+
+    
+    
