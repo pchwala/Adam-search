@@ -2,6 +2,7 @@ import os
 import requests
 import json
 from datetime import datetime
+import zoneinfo
 from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
@@ -376,10 +377,11 @@ def get_adam_data():
         adam_record = db_manager.get_by_id(AdamModel, 1)
         
         if adam_record:
-            # Format timestamp to show only time (HH:MM)
-            timestamp_str = None
-            if hasattr(adam_record, 'created_at') and adam_record.created_at is not None:
-                timestamp_str = adam_record.created_at.strftime("%H:%M")
+            # Convert to Warsaw timezone
+            db_time = adam_record.created_at
+            warsaw_tz = zoneinfo.ZoneInfo("Europe/Warsaw")
+            warsaw_time = db_time.astimezone(warsaw_tz)
+            timestamp_str = warsaw_time.strftime("%H:%M")
             
             return {
                 "output_realizowane": adam_record.realizowane,

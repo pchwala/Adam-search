@@ -3,8 +3,7 @@ from typing import List, Optional, Type, TypeVar
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.sql import func
-from datetime import datetime
-import pytz
+from datetime import datetime, timezone
 import logging
 import sys
 from database import SessionLocal, Base
@@ -113,14 +112,13 @@ class DatabaseManager:
             True if update was successful, False otherwise
         """
         try:
-            # Get current time in CEST timezone
-            cest_tz = pytz.timezone('Europe/Warsaw')
-            current_time_warsaw = datetime.now(cest_tz)
+            # Get current time in UTC
+            current_time_utc = datetime.now(timezone.utc)
             
             with self.transaction() as session:
                 # Try to update existing record with id=1
                 updated_rows = session.query(Adam).filter(Adam.id == 1).update({
-                    'created_at': current_time_warsaw,
+                    'created_at': current_time_utc,
                     'realizowane': output_realizowane,
                     'oczekuje': output_oczekuje,
                     'combined': output_combined,
@@ -132,7 +130,7 @@ class DatabaseManager:
                 if updated_rows == 0:
                     new_record = Adam(
                         id=1,
-                        created_at=current_time_warsaw,
+                        created_at=current_time_utc,
                         realizowane=output_realizowane,
                         oczekuje=output_oczekuje,
                         combined=output_combined,
