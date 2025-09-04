@@ -7,5 +7,6 @@ google-auth-httplib2
 oauth2client
 sqlalchemy
 dotenv
+pytz
 psycopg2-binary
 uvicorn

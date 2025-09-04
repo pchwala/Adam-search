@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.sql import func
 from datetime import datetime
-from zoneinfo import ZoneInfo
+import pytz
 import logging
 import sys
 from database import SessionLocal, Base
@@ -114,7 +114,7 @@ class DatabaseManager:
         """
         try:
             # Get current time in CEST timezone
-            cest_tz = ZoneInfo("Europe/Warsaw")  # CEST is same as Europe/Warsaw timezone
+            cest_tz = pytz.timezone('Europe/Warsaw')
             current_time_warsaw = datetime.now(cest_tz)
             
             with self.transaction() as session:
