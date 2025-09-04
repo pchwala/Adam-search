@@ -9,7 +9,8 @@ import gspread
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-
+from DatabaseManager import DatabaseManager
+from models import Adam as AdamModel
 class Adam:
     def __init__(self):
         """Initialize the IdoSell API client with credentials."""
@@ -326,6 +327,7 @@ app.add_middleware(
 @app.get("/search_orders")
 def search_orders_route():
     adam_instance = Adam()
+    db_manager = DatabaseManager()
     try:
         stats = adam_instance.search_orders()
         new_orders_count = adam_instance.count_new()
@@ -336,15 +338,24 @@ def search_orders_route():
         output_wykonane = f"{wykonane_count}"
         total_combined = stats['wszystko']['non_iphone_count'] + new_orders_count
         output_combined = f"{total_combined}"
-        return {
-            "output_realizowane": output_realizowane,
-            "output_oczekuje": output_oczekuje,
-            "output_combined": output_combined,
-            "output_nie_dodane": output_nie_dodane,
-            "output_wykonane": output_wykonane
-        }
+
+        db_manager.update_adam_record(
+            output_realizowane=output_realizowane,
+            output_oczekuje=output_oczekuje,
+            output_combined=output_combined,
+            output_nie_dodane=output_nie_dodane,
+            output_wykonane=output_wykonane
+        )
+
+        return JSONResponse(
+            status_code=200,
+            content={"status": "success", "message": "Data updated successfully"}
+        )
     except Exception as e:
-        return {"error": str(e)}
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(e)}
+        )
     
     
 @app.get("/save_daily")
@@ -353,6 +364,34 @@ def save_daily():
     try:
         adam_instance.daily_count()
         return {"status": "success"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/get_data")
+def get_adam_data():
+    db_manager = DatabaseManager()
+    try:
+        # Get the record with id=1 from the Adam table
+        adam_record = db_manager.get_by_id(AdamModel, 1)
+        
+        if adam_record:
+            # Format timestamp to show only time (HH:MM)
+            timestamp_str = None
+            if hasattr(adam_record, 'created_at') and adam_record.created_at is not None:
+                timestamp_str = adam_record.created_at.strftime("%H:%M")
+            
+            return {
+                "output_realizowane": adam_record.realizowane,
+                "output_oczekuje": adam_record.oczekuje,
+                "output_combined": adam_record.combined,
+                "output_nie_dodane": adam_record.nie_dodane,
+                "output_wykonane": adam_record.wykonane,
+                "timestamp": timestamp_str
+            }
+        else:
+            return {"error": "No record found with id=1"}
+            
     except Exception as e:
         return {"error": str(e)}
 

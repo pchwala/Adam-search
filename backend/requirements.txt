@@ -5,4 +5,7 @@ google-auth
 google-auth-oauthlib
 google-auth-httplib2
 oauth2client
+sqlalchemy
+dotenv
+psycopg2-binary
 uvicorn
