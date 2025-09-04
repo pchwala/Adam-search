@@ -16,11 +16,14 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
   const fetchData = async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("http://127.0.0.1:8000/get_data");
+      const response = await fetch(`${API_BASE_URL}/get_data`);
       if (!response.ok) {
         let error = "Network response was not ok";
         throw new Error(error);
@@ -40,11 +43,11 @@ function App() {
     setError("");
     try {
       // First, call search_orders to refresh the data
-      const searchResponse = await fetch("http://127.0.0.1:8000/search_orders");
+      const searchResponse = await fetch(`${API_BASE_URL}/search_orders`);
 
       if (searchResponse.status === 200) {
         // If search_orders returned 200, then fetch the updated data
-        const dataResponse = await fetch("http://127.0.0.1:8000/get_data");
+        const dataResponse = await fetch(`${API_BASE_URL}/get_data`);
         if (!dataResponse.ok) {
           throw new Error("Failed to get updated data");
         }

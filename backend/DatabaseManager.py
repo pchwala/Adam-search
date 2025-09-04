@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.sql import func
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import logging
 import sys
 from database import SessionLocal, Base
@@ -112,10 +113,14 @@ class DatabaseManager:
             True if update was successful, False otherwise
         """
         try:
+            # Get current time in CEST timezone
+            cest_tz = ZoneInfo("Europe/Warsaw")  # CEST is same as Europe/Warsaw timezone
+            current_time_warsaw = datetime.now(cest_tz)
+            
             with self.transaction() as session:
                 # Try to update existing record with id=1
                 updated_rows = session.query(Adam).filter(Adam.id == 1).update({
-                    'created_at': datetime.now(),
+                    'created_at': current_time_warsaw,
                     'realizowane': output_realizowane,
                     'oczekuje': output_oczekuje,
                     'combined': output_combined,
@@ -127,7 +132,7 @@ class DatabaseManager:
                 if updated_rows == 0:
                     new_record = Adam(
                         id=1,
-                        created_at=datetime.now(),
+                        created_at=current_time_warsaw,
                         realizowane=output_realizowane,
                         oczekuje=output_oczekuje,
                         combined=output_combined,
