@@ -384,9 +384,9 @@ def get_adam_data():
             timestamp_str = warsaw_time.strftime("%H:%M")
             
             return {
-                "output_realizowane": "113",
+                "output_realizowane": adam_record.realizowane,
                 "output_oczekuje": adam_record.oczekuje,
-                "output_combined": "152",
+                "output_combined": adam_record.combined,
                 "output_nie_dodane": adam_record.nie_dodane,
                 "output_wykonane": adam_record.wykonane,
                 "timestamp": timestamp_str
